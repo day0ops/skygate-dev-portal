@@ -1,0 +1,469 @@
+// -------------------------------------------------------
+// Mock data for the Gloo Platform Portal API
+// -------------------------------------------------------
+
+const openApiSpec = {
+  openapi: "3.0.0",
+  info: { title: "Tracks REST API", version: "1.0.0" },
+  servers: [{ url: "http://localhost:8080" }],
+  paths: {
+    "/tracks": {
+      get: {
+        summary: "List all tracks",
+        operationId: "listTracks",
+        responses: { 200: { description: "A list of tracks" } },
+      },
+    },
+    "/tracks/{id}": {
+      get: {
+        summary: "Get a track by ID",
+        operationId: "getTrack",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: { 200: { description: "A single track" } },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Track: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          author: { type: "string" },
+          duration: { type: "integer" },
+        },
+      },
+      Author: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+const ordersSpec = {
+  openapi: "3.0.0",
+  info: { title: "Orders API", version: "1.0.0" },
+  servers: [{ url: "http://localhost:31080" }],
+  paths: {
+    "/orders": {
+      get: {
+        summary: "List all orders",
+        operationId: "listOrders",
+        responses: { 200: { description: "A list of orders" } },
+      },
+      post: {
+        summary: "Create an order",
+        operationId: "createOrder",
+        responses: { 201: { description: "Order created" } },
+      },
+    },
+    "/orders/{id}": {
+      get: {
+        summary: "Get an order by ID",
+        operationId: "getOrder",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: { 200: { description: "A single order" } },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Order: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          product: { type: "string" },
+          quantity: { type: "integer" },
+          status: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+const petStoreSpec = {
+  openapi: "3.0.0",
+  info: { title: "Petstore API", version: "2.0.0" },
+  servers: [{ url: "http://localhost:31080" }],
+  paths: {
+    "/pets": {
+      get: {
+        summary: "List all pets",
+        operationId: "listPets",
+        responses: { 200: { description: "A list of pets" } },
+      },
+      post: {
+        summary: "Create a pet",
+        operationId: "createPet",
+        responses: { 201: { description: "Pet created" } },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Pet: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          species: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+// An OpenAPI 3.2 document, for validating how far the renderers get with the
+// newer spec version:
+//   - the QUERY method operation renders in swagger-ui (>= 5.32) but is
+//     silently dropped by Redoc, which models 3.2 documents as 3.1
+//   - the SSE response's itemSchema is ignored by both renderers today
+//   - the hierarchical tags (parent/kind) are parsed by swagger-ui's ApiDOM
+//     layer but both renderers show them flat: "catalog" appears as an empty
+//     sibling section rather than a parent containing "search"
+const searchSpec = {
+  openapi: "3.2.0",
+  info: { title: "Search REST API", version: "1.0.0" },
+  servers: [{ url: "http://localhost:31080" }],
+  tags: [
+    { name: "catalog", summary: "Catalog", kind: "nav" },
+    {
+      name: "search",
+      summary: "Search",
+      description: "Catalog search operations",
+      parent: "catalog",
+      kind: "nav",
+    },
+  ],
+  paths: {
+    "/search": {
+      query: {
+        summary: "Search the catalog",
+        operationId: "searchCatalog",
+        tags: ["search"],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  term: { type: "string" },
+                  limit: { type: "integer" },
+                },
+              },
+            },
+          },
+        },
+        responses: { 200: { description: "Search results" } },
+      },
+      get: {
+        summary: "List saved searches",
+        operationId: "listSavedSearches",
+        tags: ["search"],
+        responses: { 200: { description: "A list of saved searches" } },
+      },
+    },
+    "/search/stream": {
+      get: {
+        summary: "Stream search results",
+        operationId: "streamSearchResults",
+        tags: ["search"],
+        responses: {
+          200: {
+            description: "Server-sent events stream of results",
+            content: {
+              "text/event-stream": {
+                itemSchema: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    score: { type: "number" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      SearchResult: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          score: { type: "number" },
+        },
+      },
+    },
+  },
+};
+
+// An OpenAPI 3.1 document with no `paths` at all — only webhooks. `paths` is
+// required in 3.0 but optional in 3.1, so this must reach the renderers rather
+// than be rejected as "not a spec". See webhooks-only-spec.spec.ts for what the
+// renderers actually do with it.
+const webhooksSpec = {
+  openapi: "3.1.0",
+  info: { title: "Webhooks REST API", version: "1.0.0" },
+  servers: [{ url: "http://localhost:31080" }],
+  webhooks: {
+    trackPublished: {
+      post: {
+        summary: "Track published event",
+        operationId: "trackPublished",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TrackPublishedEvent" },
+            },
+          },
+        },
+        responses: { 200: { description: "Event acknowledged" } },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      TrackPublishedEvent: {
+        type: "object",
+        properties: {
+          trackId: { type: "string" },
+          publishedAt: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+// ----- GMG (Gloo Mesh Gateway) format: flat API list -----
+
+const gmgApis = [
+  {
+    apiProductId: "tracks-api",
+    apiProductDisplayName: "Tracks API",
+    apiVersion: "v1",
+    apiId: "tracks-api-v1",
+    contact: "platform-team@example.com",
+    customMetadata: { team: "platform", tier: "internal" },
+    description: "REST API for managing music tracks",
+    license: "MIT",
+    termsOfService: "https://example.com/tos",
+    title: "Tracks REST API",
+    usagePlans: ["gold", "silver"],
+    openapiSpec: openApiSpec,
+    openapiSpecFetchErr: null,
+  },
+  {
+    apiProductId: "petstore-api",
+    apiProductDisplayName: "Petstore API",
+    apiVersion: "v2",
+    apiId: "petstore-api-v2",
+    contact: "petstore-team@example.com",
+    customMetadata: { team: "petstore" },
+    description: "Petstore sample API",
+    license: "Apache-2.0",
+    termsOfService: "https://example.com/tos",
+    title: "Petstore API",
+    usagePlans: ["free", "gold"],
+    openapiSpec: petStoreSpec,
+    openapiSpecFetchErr: null,
+  },
+  {
+    apiProductId: "orders-api",
+    apiProductDisplayName: "Orders API",
+    apiVersion: "v1",
+    apiId: "orders-api-v1",
+    contact: "commerce-team@example.com",
+    customMetadata: { team: "commerce" },
+    description: "REST API for managing orders",
+    license: "MIT",
+    termsOfService: "https://example.com/tos",
+    title: "Orders API",
+    usagePlans: ["gold"],
+    openapiSpec: ordersSpec,
+    openapiSpecFetchErr: null,
+  },
+  {
+    apiProductId: "search-api",
+    apiProductDisplayName: "Search API",
+    apiVersion: "v1",
+    apiId: "search-api-v1",
+    contact: "search-team@example.com",
+    customMetadata: { team: "search" },
+    description: "Search API described with OpenAPI 3.2",
+    license: "MIT",
+    termsOfService: "https://example.com/tos",
+    title: "Search REST API",
+    usagePlans: ["gold"],
+    openapiSpec: searchSpec,
+    openapiSpecFetchErr: null,
+  },
+  {
+    apiProductId: "webhooks-api",
+    apiProductDisplayName: "Webhooks API",
+    apiVersion: "v1",
+    apiId: "webhooks-api-v1",
+    contact: "events-team@example.com",
+    customMetadata: { team: "events" },
+    description: "Webhooks-only OpenAPI 3.1 document, with no paths",
+    license: "MIT",
+    termsOfService: "https://example.com/tos",
+    title: "Webhooks REST API",
+    usagePlans: ["gold"],
+    openapiSpec: webhooksSpec,
+    openapiSpecFetchErr: null,
+  },
+];
+
+// ----- GG (Gloo Gateway) format: API products + versions -----
+
+const ggApiProducts = [
+  {
+    createdAt: "2024-01-15T10:00:00Z",
+    description: "REST API for managing music tracks",
+    id: "tracks-api",
+    name: "Tracks API",
+    updatedAt: "2024-06-01T12:00:00Z",
+    versionsCount: 1,
+  },
+  {
+    createdAt: "2024-03-20T08:00:00Z",
+    description: "Petstore sample API",
+    id: "petstore-api",
+    name: "Petstore API",
+    updatedAt: "2024-05-15T09:30:00Z",
+    versionsCount: 1,
+  },
+  {
+    createdAt: "2024-05-01T10:00:00Z",
+    description: "REST API for managing orders",
+    id: "orders-api",
+    name: "Orders API",
+    updatedAt: "2024-06-10T08:00:00Z",
+    versionsCount: 1,
+  },
+  {
+    createdAt: "2024-07-01T10:00:00Z",
+    description: "Search API described with OpenAPI 3.2",
+    id: "search-api",
+    name: "Search API",
+    updatedAt: "2024-07-15T08:00:00Z",
+    versionsCount: 1,
+  },
+  {
+    createdAt: "2024-08-01T10:00:00Z",
+    description: "Webhooks-only OpenAPI 3.1 document, with no paths",
+    id: "webhooks-api",
+    name: "Webhooks API",
+    updatedAt: "2024-08-15T08:00:00Z",
+    versionsCount: 1,
+  },
+];
+
+const ggApiVersions = {
+  "tracks-api": [
+    {
+      apiSpec: openApiSpec,
+      createdAt: "2024-01-15T10:00:00Z",
+      documentation: "Full documentation for Tracks API v1",
+      id: "tracks-api-v1",
+      name: "v1",
+      publicVisible: true,
+      status: "APPROVED",
+      title: "Tracks REST API v1",
+      updatedAt: "2024-06-01T12:00:00Z",
+    },
+  ],
+  "petstore-api": [
+    {
+      apiSpec: petStoreSpec,
+      createdAt: "2024-03-20T08:00:00Z",
+      documentation: "Full documentation for Petstore API v2",
+      id: "petstore-api-v2",
+      name: "v2",
+      publicVisible: true,
+      status: "APPROVED",
+      title: "Petstore API v2",
+      updatedAt: "2024-05-15T09:30:00Z",
+    },
+  ],
+  "orders-api": [
+    {
+      apiSpec: ordersSpec,
+      createdAt: "2024-05-01T10:00:00Z",
+      documentation: "Full documentation for Orders API v1",
+      id: "orders-api-v1",
+      name: "v1",
+      publicVisible: true,
+      status: "APPROVED",
+      title: "Orders API v1",
+      updatedAt: "2024-06-10T08:00:00Z",
+    },
+  ],
+  "search-api": [
+    {
+      apiSpec: searchSpec,
+      createdAt: "2024-07-01T10:00:00Z",
+      documentation: "Full documentation for Search API v1",
+      id: "search-api-v1",
+      name: "v1",
+      publicVisible: true,
+      status: "APPROVED",
+      title: "Search API v1",
+      updatedAt: "2024-07-15T08:00:00Z",
+    },
+  ],
+  "webhooks-api": [
+    {
+      apiSpec: webhooksSpec,
+      createdAt: "2024-08-01T10:00:00Z",
+      documentation: "Full documentation for Webhooks API v1",
+      id: "webhooks-api-v1",
+      name: "v1",
+      publicVisible: true,
+      status: "APPROVED",
+      title: "Webhooks API v1",
+      updatedAt: "2024-08-15T08:00:00Z",
+    },
+  ],
+};
+
+// Map apiId -> OpenAPI spec for the /apis/:apiId/schema endpoint
+const apiSchemas = {
+  "tracks-api-v1": openApiSpec,
+  "petstore-api-v2": petStoreSpec,
+  "orders-api-v1": ordersSpec,
+  "search-api-v1": searchSpec,
+  "webhooks-api-v1": webhooksSpec,
+};
+
+module.exports = {
+  gmgApis,
+  ggApiProducts,
+  ggApiVersions,
+  apiSchemas,
+};

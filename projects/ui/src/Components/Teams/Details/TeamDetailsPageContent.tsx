@@ -1,0 +1,49 @@
+import { Box, Flex } from "@mantine/core";
+import { Team } from "../../../Apis/api-types";
+import { Icon } from "../../../Assets/Icons";
+import { useIsAdmin } from "../../../Context/AuthContext";
+import { BannerHeading } from "../../Common/Banner/BannerHeading";
+import { BannerHeadingTitle } from "../../Common/Banner/BannerHeadingTitle";
+import { PageContainer } from "../../Common/PageContainer";
+import TeamAppsSection from "./AppsSection/TeamAppsSection";
+import EditTeamButtonWithModal from "./EditTeamButtonWithModal";
+import TeamUsersSection from "./UsersSection/TeamUsersSection";
+
+const TeamDetailsPageContent = ({ team }: { team: Team }) => {
+  const isAdmin = useIsAdmin();
+
+  return (
+    <PageContainer>
+      <BannerHeading
+        title={
+          <BannerHeadingTitle
+            text={team.name}
+            logo={<Icon.TeamsIcon />}
+            stylingTweaks={{
+              fontSize: "32px",
+              lineHeight: "36px",
+            }}
+            additionalInfo={<EditTeamButtonWithModal team={team} />}
+          />
+        }
+        description={team.description}
+        breadcrumbItems={[
+          { label: "Home", link: "/" },
+          // Team details are shared between the admin and self-service
+          // views, so the crumb has to lead back to whichever list the
+          // caller's mode actually populates.
+          { label: "Teams", link: isAdmin ? "/admin/teams" : "/teams" },
+          { label: team.name },
+        ]}
+      />
+      <Box px={"30px"} pb={"30px"}>
+        <Flex gap={"30px"} direction={"column"}>
+          <TeamUsersSection team={team} />
+          <TeamAppsSection team={team} />
+        </Flex>
+      </Box>
+    </PageContainer>
+  );
+};
+
+export default TeamDetailsPageContent;

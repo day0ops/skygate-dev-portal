@@ -1,0 +1,434 @@
+/**
+ *
+ * These variables are assigned with CLI input when initializing
+ * the project with tmplr: https://github.com/loreanvictor/tmplr
+ *
+ * They can also be updated manually at any time.
+ *
+ */
+
+/**
+ * This checks if a `templateString` has been transformed by tmplr.
+ * If it has not been transformed, the next truthy value is returned.
+ * Otherwise, the transformed value is returned.
+ */
+function templateString(
+  templateString: string,
+  ...defaultValues: (string | undefined)[]
+) {
+  if (/{{.*}}$/.test(templateString)) {
+    let defaultValue = "";
+    for (let i = 0; i < defaultValues.length; i++) {
+      const curValue = defaultValues[i];
+      if (!!curValue) {
+        defaultValue = curValue;
+        break;
+      }
+    }
+    return defaultValue;
+  }
+  return templateString;
+}
+
+/**
+ * Misconfigurations found while reading the variables below, reported to the
+ * operator by the config error screen instead of being guessed past (see
+ * `main.tsx`). Collected rather than thrown, because this module is evaluated
+ * during import, before React mounts: a throw here is an uncatchable blank
+ * page, which hides the problem rather than surfacing it.
+ */
+export const configErrors: string[] = [];
+
+/**
+ * Parses an environment variable that selects an on/off behavior.
+ *
+ * Unset and empty both mean "off": a Kubernetes manifest or Docker `-e` easily
+ * yields an empty string for a variable the operator never meant to set, and an
+ * empty value has no plausible "I meant on" reading. Anything else that is not
+ * a boolean is a misconfiguration; the returned value is then never used,
+ * because a non-empty `configErrors` stops the app from rendering at all.
+ */
+function parseBoolEnv(name: string, rawValue: string | undefined) {
+  const value = (rawValue ?? "").trim().toLowerCase();
+  if (value === "") {
+    return false;
+  }
+  if (value === "true" || value === "1") {
+    return true;
+  }
+  if (value === "false" || value === "0") {
+    return false;
+  }
+  configErrors.push(
+    `${name} must be "true" or "false", but was "${rawValue}".`
+  );
+  return false;
+}
+
+/**
+ * Parses an environment variable that selects one of a fixed set of values.
+ *
+ * Matching ignores case, because these values were normalized with
+ * `toUpperCase` and `toLowerCase` before they were validated. As with
+ * `parseBoolEnv`, an unrecognized value is a misconfiguration rather than a
+ * silent fallback to the default.
+ */
+function parseEnumEnv<T extends string>(
+  name: string,
+  rawValue: string | undefined,
+  allowedValues: readonly T[],
+  defaultValue: T
+) {
+  const value = (rawValue ?? "").trim();
+  if (value === "") {
+    return defaultValue;
+  }
+  const match = matchEnumValue(value, allowedValues);
+  if (match !== undefined) {
+    return match;
+  }
+  configErrors.push(
+    `${name} must be one of ${quoteList(allowedValues)}, but was "${rawValue}".`
+  );
+  return defaultValue;
+}
+
+/** The allowed value `value` names, ignoring case. */
+function matchEnumValue<T extends string>(
+  value: string,
+  allowedValues: readonly T[]
+): T | undefined {
+  return allowedValues.find(
+    (allowedValue) => allowedValue.toLowerCase() === value.toLowerCase()
+  );
+}
+
+function quoteList(values: readonly string[]) {
+  return values.map((v) => `"${v}"`).join(", ");
+}
+
+/**
+ * Parses an environment variable that selects any combination of a fixed set of
+ * values, written as a comma-separated list. "ALL" names every value and is
+ * what an unset or empty variable means.
+ */
+function parseEnumSetEnv<T extends string>(
+  name: string,
+  rawValue: string | undefined,
+  allowedValues: readonly T[]
+): ReadonlySet<T> {
+  const everything = new Set(allowedValues);
+  const value = (rawValue ?? "").trim();
+  if (value === "") {
+    return everything;
+  }
+  const selected = new Set<T>();
+  const unrecognized: string[] = [];
+  for (const entry of value.split(",")) {
+    const trimmed = entry.trim();
+    if (trimmed === "") {
+      continue;
+    }
+    if (trimmed.toLowerCase() === "all") {
+      allowedValues.forEach((allowedValue) => selected.add(allowedValue));
+      continue;
+    }
+    const match = matchEnumValue(trimmed, allowedValues);
+    if (match === undefined) {
+      unrecognized.push(trimmed);
+    } else {
+      selected.add(match);
+    }
+  }
+  const allowed = quoteList(["ALL", ...allowedValues]);
+  if (unrecognized.length > 0) {
+    configErrors.push(
+      `${name} must be a comma-separated list of ${allowed}, but had ` +
+        `${quoteList(unrecognized)}.`
+    );
+    return everything;
+  }
+  // Separators with nothing between them: the operator meant to name something.
+  if (selected.size === 0) {
+    configErrors.push(
+      `${name} must name at least one of ${allowed}, but was "${rawValue}".`
+    );
+    return everything;
+  }
+  return selected;
+}
+
+//
+// Project Settings
+//
+export const companyName = templateString(
+  "{{ tmplr.company_name }}",
+  insertedEnvironmentVariables?.VITE_COMPANY_NAME,
+  import.meta.env.VITE_COMPANY_NAME,
+  "Example Company"
+);
+document.title = companyName + " Portal";
+
+/**
+ * This is the endpoint to get the oauth token.
+ * In keycloak, this is the `token_endpoint` property from:
+ * <your-keycloak-url>/realms/<your-realm>/.well-known/openid-configuration
+ */
+export const tokenEndpoint = templateString(
+  "{{ tmplr.tokenEndpoint }}",
+  insertedEnvironmentVariables?.VITE_TOKEN_ENDPOINT,
+  import.meta.env.VITE_TOKEN_ENDPOINT
+);
+
+/**
+ * This is the endpoint to get the PKCE auth token.
+ * In keycloak, this is the `authorization_endpoint` property from:
+ * <your-keycloak-url>/realms/<your-realm>/.well-known/openid-configuration
+ */
+export const authEndpoint = templateString(
+  "{{ tmplr.authEndpoint }}",
+  insertedEnvironmentVariables?.VITE_AUTH_ENDPOINT,
+  import.meta.env.VITE_AUTH_ENDPOINT
+);
+
+/**
+ * This is the endpoint to end your session.
+ * In keycloak, this is the `end_session_endpoint` property from:
+ * <your-keycloak-url>/realms/<your-realm>/.well-known/openid-configuration
+ */
+export const logoutEndpoint = templateString(
+  "{{ tmplr.logoutEndpoint }}",
+  insertedEnvironmentVariables?.VITE_LOGOUT_ENDPOINT,
+  import.meta.env.VITE_LOGOUT_ENDPOINT
+);
+
+/**
+ * The oauth client id.
+ * In keycloak, this is shown in the client settings
+ * of your keycloak instances UI: <your-keycloak-url>/auth
+ */
+export const clientId = templateString(
+  "{{ tmplr.clientId }}",
+  insertedEnvironmentVariables?.VITE_CLIENT_ID,
+  import.meta.env.VITE_CLIENT_ID
+);
+
+/**
+ * Selects the portal's authentication flow:
+ * - `true`: the gateway-hosted (BFF) oidcAuthorizationCode flow, for when this
+ *   app is deployed in the mesh and the ExtAuthPolicy uses an
+ *   `oidcAuthorizationCode` config.
+ * - `false` (the default when unset): the browser-side authorization-code flow
+ *   with PKCE, driven by `clientId`/`authEndpoint`/`tokenEndpoint`.
+ */
+export const appliedOidcAuthCodeConfig = parseBoolEnv(
+  "VITE_APPLIED_OIDC_AUTH_CODE_CONFIG",
+  templateString(
+    "{{ tmplr.appliedOidcAuthCodeConfig }}",
+    insertedEnvironmentVariables?.VITE_APPLIED_OIDC_AUTH_CODE_CONFIG,
+    import.meta.env.VITE_APPLIED_OIDC_AUTH_CODE_CONFIG
+  )
+);
+
+/**
+ * This is optional and only needed if this app is deployed in the mesh
+ * and the ExtAuthPolicy uses an oidcAuthorizationCode config.
+ * Defaults to ${PORTAL_SERVER_URL}/login
+ */
+export const oidcAuthCodeConfigCallbackPath = templateString(
+  "{{ tmplr.oidcAuthCodeConfigCallbackPath }}",
+  insertedEnvironmentVariables?.VITE_OIDC_AUTH_CODE_CONFIG_CALLBACK_PATH,
+  import.meta.env.VITE_OIDC_AUTH_CODE_CONFIG_CALLBACK_PATH,
+  (import.meta.env.VITE_PORTAL_SERVER_URL ?? "") + "/login"
+);
+
+/**
+ * This is optional and only needed if this app is deployed in the mesh
+ * and the ExtAuthPolicy uses an oidcAuthorizationCode config.
+ * Defaults to ${PORTAL_SERVER_URL}/logout.
+ */
+export const oidcAuthCodeConfigLogoutPath = templateString(
+  "{{ tmplr.oidcAuthCodeConfigLogoutPath }}",
+  insertedEnvironmentVariables?.VITE_OIDC_AUTH_CODE_CONFIG_LOGOUT_PATH,
+  import.meta.env.VITE_OIDC_AUTH_CODE_CONFIG_LOGOUT_PATH,
+  (import.meta.env.VITE_PORTAL_SERVER_URL ?? "") + "/logout"
+);
+
+/**
+ * This is optional.
+ */
+export const swaggerConfigURL = templateString(
+  "{{ tmplr.swaggerConfigURL }}",
+  insertedEnvironmentVariables?.VITE_SWAGGER_CONFIG_URL,
+  import.meta.env.VITE_SWAGGER_CONFIG_URL,
+  ""
+);
+
+/**
+ * This is optional, used with Auth0.
+ */
+export const audience = templateString(
+  "{{ tmplr.audience }}",
+  insertedEnvironmentVariables?.VITE_AUDIENCE,
+  import.meta.env.VITE_AUDIENCE,
+  ""
+);
+
+/**
+ * This is optional. Used on the home ("/") page.
+ */
+export const homeImageURL = templateString(
+  "{{ tmplr.homeImageURL }}",
+  insertedEnvironmentVariables?.VITE_HOME_IMAGE_URL,
+  import.meta.env.VITE_HOME_IMAGE_URL,
+  ""
+);
+
+/**
+ * This is optional. Used on the API's ("/apis") page.
+ */
+export const bannerImageURL = templateString(
+  "{{ tmplr.bannerImageURL }}",
+  insertedEnvironmentVariables?.VITE_BANNER_IMAGE_URL,
+  import.meta.env.VITE_BANNER_IMAGE_URL,
+  ""
+);
+
+/**
+ * This is optional. Used on the upper left corder of the website.
+ */
+export const logoImageURL = templateString(
+  "{{ tmplr.logoImageURL }}",
+  insertedEnvironmentVariables?.VITE_LOGO_IMAGE_URL,
+  import.meta.env.VITE_LOGO_IMAGE_URL,
+  ""
+);
+
+export type CustomPage = {
+  title: string;
+  path: string;
+};
+/**
+ * This is an optional, JSON serialized array of objects.
+ * Each object has a "title" and "path" that corresponds to a ".html" or ".md" file in the `projects/ui/src/public` folder.
+ * The name is the text that is displayed in the navbar header link.
+ * For example:
+ * '[{"title":"Custom Page","path":"/custom-page.md"}, {"title":"Another Page","path":"/some-path/another-page.html"}]'
+ */
+export const customPages = JSON.parse(
+  templateString(
+    "{{ tmplr.customPages }}",
+    insertedEnvironmentVariables?.VITE_CUSTOM_PAGES,
+    import.meta.env.VITE_CUSTOM_PAGES,
+    "[]"
+  )
+) as Array<CustomPage>;
+// TODO: Check the paths and if any overlap with the dev-portal-starter.
+// console.log("Loaded custom pages", customPages);
+
+/**
+ * This is optional. Check the README for usage.
+ */
+export const swaggerPrefillApiKey = (() => {
+  const parsed = JSON.parse(
+    templateString(
+      "{{ tmplr.swaggerPrefillApiKey }}",
+      insertedEnvironmentVariables?.VITE_SWAGGER_PREFILL_API_KEY,
+      import.meta.env.VITE_SWAGGER_PREFILL_API_KEY,
+      "[]"
+    )
+  ) as [string, string] | [];
+  return parsed.length === 2
+    ? {
+        authDefinitionKey: parsed[0],
+        apiKeyValue: parsed[1],
+      }
+    : undefined;
+})();
+
+/**
+ * This is optional. Check the README for usage.
+ */
+export const swaggerPrefillOauth = (() => {
+  const parsed = JSON.parse(
+    templateString(
+      "{{ tmplr.swaggerPrefillOauth }}",
+      insertedEnvironmentVariables?.VITE_SWAGGER_PREFILL_OAUTH,
+      import.meta.env.VITE_SWAGGER_PREFILL_OAUTH,
+      "{}"
+    )
+  );
+  return Object.keys(parsed).length > 0 ? parsed : undefined;
+})();
+
+/**
+ * This is optional. Check the README for usage.
+ */
+export const swaggerPrefillBasic = (() => {
+  const parsed = JSON.parse(
+    templateString(
+      "{{ tmplr.swaggerPrefillBasic }}",
+      insertedEnvironmentVariables?.VITE_SWAGGER_PREFILL_BASIC,
+      import.meta.env.VITE_SWAGGER_PREFILL_BASIC,
+      "[]"
+    )
+  ) as [string, string, string] | [];
+  return parsed.length === 3
+    ? {
+        authDefinitionKey: parsed[0],
+        username: parsed[1],
+        password: parsed[2],
+      }
+    : undefined;
+})();
+
+/**
+ * This is optional.
+ */
+const appAuthMethods = ["OAUTH", "API_KEY", "API_KEY_CLIENT_ID"] as const;
+
+/** The credential types whose sections the App details page shows. */
+export const enabledAppAuthMethods = parseEnumSetEnv(
+  "VITE_DEFAULT_APP_AUTH",
+  templateString(
+    "{{ tmplr.defaultAppAuthMethod }}",
+    insertedEnvironmentVariables?.VITE_DEFAULT_APP_AUTH,
+    import.meta.env.VITE_DEFAULT_APP_AUTH
+  ),
+  appAuthMethods
+);
+
+/**
+ * This is optional.
+ */
+export const apiPageReload = parseBoolEnv(
+  "VITE_API_PAGE_RELOAD",
+  templateString(
+    "{{ tmplr.apiPageReload }}",
+    insertedEnvironmentVariables?.VITE_API_PAGE_RELOAD,
+    import.meta.env.VITE_API_PAGE_RELOAD
+  )
+);
+
+/**
+ * How the portal reacts when it detects that the user's session has expired
+ * (e.g. the gateway redirected a background data request to a login page, or
+ * returned a 401).
+ * - "anonymous" (default): fall back to anonymous browsing by re-issuing
+ *   requests without the dead session cookie, so the gateway serves public
+ *   content instead of redirecting to login. For mixed public/private portals.
+ * - "prompt-login": redirect the user to the identity provider to sign in
+ *   again. For fully-private portals, where there is no public content to show.
+ */
+export type SessionExpiredBehavior = "anonymous" | "prompt-login";
+const sessionExpiredBehaviors = ["anonymous", "prompt-login"] as const;
+export const sessionExpiredBehavior = parseEnumEnv(
+  "VITE_SESSION_EXPIRED_BEHAVIOR",
+  templateString(
+    "{{ tmplr.sessionExpiredBehavior }}",
+    insertedEnvironmentVariables?.VITE_SESSION_EXPIRED_BEHAVIOR,
+    import.meta.env.VITE_SESSION_EXPIRED_BEHAVIOR
+  ),
+  sessionExpiredBehaviors,
+  "anonymous"
+);

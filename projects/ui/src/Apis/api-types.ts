@@ -1,0 +1,377 @@
+//
+// Gloo Mesh Gateway Types
+//
+
+import { getEnumValues } from "../Utility/utility";
+
+type RateLimitPolicy = {
+  unit: "UNKNOWN" | "SECOND" | "MINUTE" | "HOUR" | "DAY";
+  requestsPerUnit: number;
+};
+
+type AuthPolicy = {
+  authType: string;
+};
+
+export type UsagePlan = {
+  name: string;
+  authPolicies: AuthPolicy[];
+  rateLimitPolicy: RateLimitPolicy;
+  apiIds: string[];
+};
+
+export type APIKey = {
+  name: string;
+  id: string;
+  // APIKey is returned only once when the API key is created.
+  apiKey: string | undefined;
+  metadata?: Record<string, string> | undefined;
+};
+
+export type API = {
+  apiProductId?: string;
+  apiProductDisplayName?: string;
+  apiVersion?: string;
+  apiId: string;
+  contact: string;
+  customMetadata: Record<string, string> | undefined;
+  description: string;
+  license: string;
+  termsOfService: string;
+  title: string;
+  usagePlans: string[];
+};
+
+// This api type may be returned in the next portal rest server version.
+export type APIProduct = {
+  apiProductId: string;
+  apiProductDisplayName: string;
+  apiVersions: {
+    apiId: string;
+    apiVersion: string;
+    contact: string;
+    customMetadata?: Record<string, string>;
+    description: string;
+    license: string;
+    termsOfService: string;
+    title: string;
+    usagePlans: string[];
+  }[];
+};
+
+//
+// Gloo Gateway Types
+//
+
+export type ApiProductSummary = {
+  createdAt: string;
+  description: string;
+  id: string;
+  name: string;
+  updatedAt: string;
+  versionsCount: number;
+  apiProductMetadata?: Record<string, string>;
+};
+
+export type ApiProductDetails = {
+  autoApproval: boolean;
+  contactEmail: string;
+  createdAt: string;
+  description: string;
+  id: string;
+  apiProductMetadata: Record<string, string> | null;
+  name: string;
+  updatedAt: string;
+};
+
+export type ApiVersion = {
+  apiSpec?: string | ApiVersionSchema;
+  createdAt: string;
+  documentation: string;
+  id: string;
+  name: string;
+  publicVisible?: boolean;
+  status: string; // 'published',
+  title: string;
+  updatedAt: string;
+  productVersionMetadata?: Record<string, string>;
+};
+
+export type App = {
+  createdAt: string;
+  deletedAt: string;
+  updatedAt: string;
+  id: string;
+  idpClientId?: string;
+  idpClientName?: string;
+  idpClientSecret?: string;
+  name: string;
+  description: string;
+  teamId: string;
+  metadata?: AppMetadata;
+};
+
+export type ApiKey = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+  apiKey: string;
+  name: string;
+  metadata: Record<string, string>;
+};
+
+/**
+ * An API key with a client ID, held by an app: the client ID names the
+ * credential at request time, and its API key is checked against it. The
+ * client ID is not a secret; the API key is, and is returned only on creation.
+ */
+export type ClientId = {
+  id: string;
+  appId: string;
+  clientId: string;
+  name?: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+/** The response to creating an API key with a client ID. */
+export type ClientIdWithKey = ClientId & {
+  apiKey: string;
+};
+
+export type Team = {
+  createdAt: string;
+  description: string;
+  id: string;
+  name: string;
+  updatedAt: string;
+};
+
+export type Member = {
+  createdAt: string;
+  email: string;
+  id: string;
+  name: string;
+  username: string;
+  // synced = has user logged in.
+  synced: boolean;
+  updatedAt: string;
+  deletedAt?: string;
+};
+
+export enum SubscriptionStatus {
+  APPROVED = "approved",
+  PENDING = "pending",
+  REJECTED = "rejected",
+}
+export type Subscription = {
+  apiProductId: string;
+  applicationId: string;
+  approved?: boolean;
+  approvedAt?: string;
+  rejected?: boolean;
+  rejectedAt?: string;
+  createdAt?: string;
+  deletedAt?: string;
+  id: string;
+  requestedAt: string;
+  updatedAt: string;
+  metadata?: SubscriptionMetadata;
+};
+
+export type ApiVersionExtended = ApiVersion & {
+  apiProductDescription: string;
+  apiProductName: string;
+};
+
+export type OauthCredential = {
+  id: string;
+  idpClientId: string;
+  idpClientSecret?: string;
+  idpClientName: string;
+};
+
+export enum RateLimitUnit {
+  "UNKNOWN",
+  "SECOND",
+  "MINUTE",
+  "HOUR",
+  "DAY",
+  "MONTH",
+  "YEAR",
+}
+// This list of units is used both for the type and for the dropdown in the UI.
+export const rateLimitUnitOptions = getEnumValues(RateLimitUnit).map(
+  (unit) => ({
+    value: RateLimitUnit[unit],
+    label: RateLimitUnit[unit],
+  })
+);
+
+export type RateLimit = {
+  requestsPerUnit: string;
+  unit: string;
+};
+
+export type SubscriptionMetadata = {
+  createdAt?: string;
+  customMetadata: Record<string, string>;
+  deletedAt?: string;
+  id: string;
+  rateLimit: RateLimit;
+  updatedAt: string;
+};
+
+export type AppMetadata = {
+  createdAt?: string;
+  customMetadata: Record<string, string>;
+  deletedAt?: string;
+  id: string;
+  rateLimit: RateLimit;
+  updatedAt: string;
+};
+
+//
+// Shared Types
+//
+
+export type User = {
+  name: string;
+  email: string;
+  username: string;
+  // isAdmin may be undefined on older versions of the gg portal server.
+  isAdmin?: string;
+};
+
+/**
+ * This is an error message that is returned by the useMultiSwrWithAuth function.
+ * Since it includes multiple requests, it wouldn't be a good UX to throw an error if one fails.
+ * Instead we can filter on isError and show the results that succeeded.
+ */
+export type ErrorMessageResponse = {
+  isError: true;
+  message: string;
+};
+
+export const isErrorMessageResponse = <T>(value: T | ErrorMessageResponse) =>
+  value !== null &&
+  typeof value === "object" &&
+  "isError" in value &&
+  !!value.isError;
+
+/**
+ * This may be returned from the subscriptions list endpoint, and if so is an error.
+ */
+export type SubscriptionsListError = { message: string };
+
+export const isSubscriptionsListError = (
+  s: SubscriptionsListError | Subscription[] | undefined
+) => !!s && typeof s === "object" && "message" in s;
+
+type SchemaPropertyType = "string" | "integer" | "array" | "object";
+export type ApiVersionSchema = {
+  components?: {
+    schemas: {
+      Author?: {
+        properties: { [key: string]: SchemaPropertyType };
+        type: "object";
+      };
+      Module?: {
+        properties: { [key: string]: SchemaPropertyType };
+        type: "object";
+      };
+      Track?: {
+        properties: { [key: string]: SchemaPropertyType };
+        type: "object";
+      };
+    };
+  };
+  info?: {
+    title: string;
+    version: string;
+  };
+  // Both optional: paths is required in OpenAPI 3.0, but a 3.1 document may
+  // carry only webhooks or components.
+  paths?: {
+    [key: string]: unknown;
+  };
+  webhooks?: {
+    [key: string]: unknown;
+  };
+  servers?: {
+    url: string;
+  }[];
+};
+
+const HTTP_METHODS = [
+  "get",
+  "put",
+  "post",
+  "delete",
+  "options",
+  "head",
+  "patch",
+  "trace",
+];
+
+/**
+ * Counts operations (path + method pairs), not paths: `/items` with GET and
+ * POST is two operations.
+ */
+export const countApiOperations = (spec: ApiVersionSchema) =>
+  Object.values(spec.paths ?? {}).reduce<number>((count, pathItem) => {
+    if (!pathItem || typeof pathItem !== "object") {
+      return count;
+    }
+    const methods = Object.keys(pathItem).filter((k) =>
+      HTTP_METHODS.includes(k)
+    );
+    return count + methods.length;
+  }, 0);
+
+// A document is renderable if it declares a spec version or carries any
+// top-level section. `paths` alone is too strict: it is required in OpenAPI 3.0
+// but optional in 3.1, where a document may hold only webhooks or components.
+const SPEC_KEYS = ["openapi", "swagger", "paths", "webhooks", "components"];
+
+/**
+ * The OpenAPI document reaches us as an object from newer portal servers and as
+ * a JSON string from portal v1. Anything we can't parse, or that isn't a spec
+ * at all (an error body, say), comes back undefined so callers can show an
+ * empty state instead of handing a renderer something it will choke on.
+ */
+export const normalizeApiVersionSchema = (
+  spec: string | ApiVersionSchema | undefined
+): ApiVersionSchema | undefined => {
+  let parsed: unknown = spec;
+  if (typeof spec === "string") {
+    try {
+      parsed = JSON.parse(spec);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return undefined;
+  }
+  const doc = parsed as Record<string, unknown>;
+  return SPEC_KEYS.some((k) => k in doc)
+    ? (parsed as ApiVersionSchema)
+    : undefined;
+};
+
+//
+// Response from keycloak.
+//
+export interface AccessTokensResponse {
+  id_token: string;
+  access_token: string;
+  expires_in: number;
+  "not-before-policy": number;
+  refresh_expires_in: number;
+  refresh_token: string;
+  scope: string;
+  session_state: string;
+  token_type: string;
+}
